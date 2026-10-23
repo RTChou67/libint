@@ -47,6 +47,11 @@ configure_file(
   "include/libint2/basis.h"
   @ONLY)
 
+# Keep TC kernels and public interfaces current in the generated export.
+file(GLOB truncated_coulomb_export_inputs CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/include/libint2/truncated_coulomb*.h"
+    "${PROJECT_SOURCE_DIR}/src/lib/libint/truncated_coulomb*.cc")
+
 add_custom_command(
   OUTPUT
     ${EXPORT_STAGE_DIR}/CMakeLists.txt
@@ -58,9 +63,17 @@ add_custom_command(
           "-DPROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}"
           "-DEXPORT_STAGE_DIR=${EXPORT_STAGE_DIR}"
           -P ${CMAKE_CURRENT_SOURCE_DIR}/populate.cmake
+  COMMAND ${CMAKE_COMMAND} -E touch "${EXPORT_STAGE_DIR}/CMakeLists.txt"
   DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/populate.cmake"
     "${PROJECT_SOURCE_DIR}/export/CMakeLists.txt.export"
+    "${PROJECT_SOURCE_DIR}/export/tests/CMakeLists.txt"
+    "${PROJECT_SOURCE_DIR}/export/tests/unit/test-truncated-coulomb.cc"
+    "${PROJECT_SOURCE_DIR}/include/libint2/boys.h"
+    "${PROJECT_SOURCE_DIR}/include/libint2/boys_fwd.h"
+    "${PROJECT_SOURCE_DIR}/include/libint2/engine.h"
+    "${PROJECT_SOURCE_DIR}/include/libint2/engine.impl.h"
+    ${truncated_coulomb_export_inputs}
     "${PROJECT_SOURCE_DIR}/cmake/libint2-config.cmake.in"
     "${PROJECT_BINARY_DIR}/generated/libint2_params.h"
     "${PROJECT_BINARY_DIR}/generated/HRRPart0bra0ket0pp.h"
@@ -110,9 +123,14 @@ if (LIBINT2_BUILD_LIBRARY_AS_SUBPROJECT)
 
     if (EXISTS "${EXPORT_TARBALL}")
         message("Unpacking ${EXPORT_TARBALL} and setting up as a subproject")
+        file(SHA256 "${EXPORT_TARBALL}" _libint_export_sha256)
+        if (POLICY CMP0135)
+            cmake_policy(SET CMP0135 NEW)
+        endif()
         FetchContent_Declare(
           libint-library
           URL "${EXPORT_TARBALL}"
+          URL_HASH "SHA256=${_libint_export_sha256}"
           )
         FetchContent_MakeAvailable(libint-library)
     else()
